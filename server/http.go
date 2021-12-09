@@ -88,7 +88,7 @@ func (s *HTTPServer) Start() {
 	}()
 
 	log.Printf("%s server listening on: %s", strings.ToUpper(s.cfg.HTTPScheme), listenAddr)
-	if useTls {
+	if useTls && !s.cfg.TLSDisableTermination {
 		log.Fatalf("Server crashed: %s", server.ListenAndServeTLS(s.cfg.TLSCertFile, s.cfg.TLSKeyFile))
 	} else {
 		log.Fatalf("Server crashed: %s", server.ListenAndServe())

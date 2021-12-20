@@ -51,12 +51,12 @@ func TestServe(t *testing.T) {
 	ServeCmd.SetArgs([]string{"--data-dir", tempDir})
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go ServeCmd.ExecuteContext(ctx)
 
 	if !waitForServer(":35354") {
 		assert.FailNow(t, "server did not start")
 	}
-	cancel()
 
 	assert.DirExists(t, filepath.Join(tempDir, "db"))
 	assert.Regexp(t, regexp.MustCompile("HTTP server listening on: :35354"), buf.String())

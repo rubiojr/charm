@@ -42,7 +42,7 @@ var (
 			if err != nil {
 				return err
 			}
-			s.Start()
+			s.Start(cmd.Context())
 			return nil
 		},
 	}

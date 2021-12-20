@@ -145,3 +145,7 @@ func (s *Stats) PostNews() {
 func (s *Stats) GetNewsList() {
 	s.increment("get_news_list")
 }
+
+func (s *Stats) Close() error {
+	return s.db.Close()
+}

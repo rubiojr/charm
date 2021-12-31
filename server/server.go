@@ -34,6 +34,7 @@ type Config struct {
 	DB                    db.DB
 	FileStore             storage.FileStore
 	Stats                 stats.Stats
+	AutoAccounts          bool
 }
 
 // Server contains the SSH and HTTP servers required to host the Charm Cloud.

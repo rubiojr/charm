@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"strings"
 
-	jwtmiddleware "github.com/auth0/go-jwt-middleware"
+	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
+	"github.com/auth0/go-jwt-middleware/v2/validator"
 	charm "github.com/charmbracelet/charm/proto"
-	"github.com/form3tech-oss/jwt-go"
+	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -40,7 +41,7 @@ func RequestLimitMiddleware() func(http.Handler) http.Handler {
 
 // JWTMiddleware creates a new middleware function that will validate JWT
 // tokesn based on the supplied public key.
-func JWTMiddleware(publicKey []byte) (func(http.Handler) http.Handler, error) {
+func JWTMiddleware(publicKey []byte, issuer string, audience []string) (func(http.Handler) http.Handler, error) {
 	parsed, _, _, _, err := ssh.ParseAuthorizedKey(publicKey)
 	if err != nil {
 		return nil, err
@@ -51,10 +52,20 @@ func JWTMiddleware(publicKey []byte) (func(http.Handler) http.Handler, error) {
 	if !ok {
 		return nil, fmt.Errorf("Invalid key")
 	}
-	return jwtmiddleware.New(jwtmiddleware.Options{
-		ValidationKeyGetter: signRSA(pk),
-		SigningMethod:       jwt.SigningMethodRS512,
-	}).Handler, nil
+	kf := func(ctx context.Context) (interface{}, error) {
+		return pk, nil
+	}
+	v, err := validator.New(
+		kf,
+		validator.RS512,
+		issuer,
+		audience,
+	)
+	if err != nil {
+		return nil, err
+	}
+	mw := jwtmiddleware.New(v.ValidateToken)
+	return mw.CheckJWT, nil
 }
 
 // CharmUserMiddleware looks up and authenticates a Charm user based on the
@@ -84,16 +95,16 @@ func CharmUserMiddleware(s *HTTPServer) func(http.Handler) http.Handler {
 }
 
 func charmIDFromRequest(r *http.Request) (string, error) {
-	user := r.Context().Value("user")
-	if user == "" {
-		return "", fmt.Errorf("missing user key in context")
+	claims := r.Context().Value(jwtmiddleware.ContextKey{})
+	if claims == "" {
+		return "", fmt.Errorf("missing jwt claims key in context")
 	}
-	cl := user.(*jwt.Token).Claims.(jwt.MapClaims)
-	id, ok := cl["sub"]
-	if !ok {
-		return "", fmt.Errorf("missing user key in claims map")
+	cl := claims.(*validator.ValidatedClaims).RegisteredClaims
+	sub := cl.Subject
+	if sub == "" {
+		return "", fmt.Errorf("missing subject key in claims map")
 	}
-	return id.(string), nil
+	return sub, nil
 }
 
 func signRSA(pk *rsa.PublicKey) jwt.Keyfunc {

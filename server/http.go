@@ -46,7 +46,7 @@ func NewHTTPServer(cfg *Config) (*HTTPServer, error) {
 	}
 
 	var jwtMiddleware func(http.Handler) http.Handler
-	jwtMiddleware, err := JWTMiddleware(cfg.PublicKey)
+	jwtMiddleware, err := JWTMiddleware(cfg.PublicKey, cfg.httpURL(), []string{"charm"})
 	if err != nil {
 		return nil, err
 	}

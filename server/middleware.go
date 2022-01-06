@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto"
 	"crypto/rsa"
 	"fmt"
 	"log"
@@ -12,7 +13,6 @@ import (
 	"github.com/auth0/go-jwt-middleware/v2/validator"
 	charm "github.com/charmbracelet/charm/proto"
 	"github.com/golang-jwt/jwt/v4"
-	"golang.org/x/crypto/ssh"
 )
 
 type contextKey string
@@ -39,18 +39,34 @@ func RequestLimitMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// JWTMiddlewareSkippingPrefix creates a new middleware function that will
-// validate JWT tokens except for URLs that start with the given prefix.
-func JWTMiddlewareSkippingPrefix(publicKey []byte, issuer string, audience []string, skip string) (func(http.Handler) http.Handler, error) {
-	jm, err := JWTMiddleware(publicKey, issuer, audience)
+// PublicPrefixesMiddleware allows for the specification of non-authed URL
+// prefixes. These won't be checked for JWT bearers or Charm user accounts.
+func PublicPrefixesMiddleware(prefixes []string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			public := false
+			for _, p := range prefixes {
+				if strings.HasPrefix(r.URL.Path, p) {
+					public = true
+				}
+			}
+			ctx := context.WithValue(r.Context(), "public", public)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// JWTMiddleware creates a new middleware function that will validate JWT
+// tokens based on the supplied public key.
+func JWTMiddleware(pk crypto.PublicKey, iss string, aud []string) (func(http.Handler) http.Handler, error) {
+	jm, err := jwtMiddlewareImpl(pk, iss, aud)
 	if err != nil {
 		return nil, err
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, skip) {
-				ctx := context.WithValue(r.Context(), "public", true)
-				next.ServeHTTP(w, r.WithContext(ctx))
+			if isPublic(r) {
+				next.ServeHTTP(w, r)
 			} else {
 				jm(next).ServeHTTP(w, r)
 			}
@@ -58,41 +74,12 @@ func JWTMiddlewareSkippingPrefix(publicKey []byte, issuer string, audience []str
 	}, nil
 }
 
-// JWTMiddleware creates a new middleware function that will validate JWT
-// tokens based on the supplied public key.
-func JWTMiddleware(publicKey []byte, issuer string, audience []string) (func(http.Handler) http.Handler, error) {
-	parsed, _, _, _, err := ssh.ParseAuthorizedKey(publicKey)
-	if err != nil {
-		return nil, err
-	}
-	parsedCryptoKey := parsed.(ssh.CryptoPublicKey)
-	pubCrypto := parsedCryptoKey.CryptoPublicKey()
-	pk, ok := pubCrypto.(*rsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("Invalid key")
-	}
-	kf := func(ctx context.Context) (interface{}, error) {
-		return pk, nil
-	}
-	v, err := validator.New(
-		kf,
-		validator.RS512,
-		issuer,
-		audience,
-	)
-	if err != nil {
-		return nil, err
-	}
-	mw := jwtmiddleware.New(v.ValidateToken)
-	return mw.CheckJWT, nil
-}
-
 // CharmUserMiddleware looks up and authenticates a Charm user based on the
 // provided JWT in the request.
 func CharmUserMiddleware(s *HTTPServer) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Context().Value("public") == true {
+			if isPublic(r) {
 				h.ServeHTTP(w, r)
 			} else {
 				id, err := charmIDFromRequest(r)
@@ -115,6 +102,27 @@ func CharmUserMiddleware(s *HTTPServer) func(http.Handler) http.Handler {
 			}
 		})
 	}
+}
+
+func isPublic(r *http.Request) bool {
+	return r.Context().Value("public") == true
+}
+
+func jwtMiddlewareImpl(pk crypto.PublicKey, iss string, aud []string) (func(http.Handler) http.Handler, error) {
+	kf := func(ctx context.Context) (interface{}, error) {
+		return pk, nil
+	}
+	v, err := validator.New(
+		kf,
+		validator.RS512,
+		iss,
+		aud,
+	)
+	if err != nil {
+		return nil, err
+	}
+	mw := jwtmiddleware.New(v.ValidateToken)
+	return mw.CheckJWT, nil
 }
 
 func charmIDFromRequest(r *http.Request) (string, error) {

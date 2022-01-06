@@ -159,5 +159,7 @@ func (me *SSHServer) newJWT(charmID string, audience []string) (string, error) {
 		Issuer:    me.config.httpURL(),
 		Audience:  audience,
 	}
-	return jwt.NewWithClaims(jwt.SigningMethodRS512, claims).SignedString(me.jwtPrivateKey)
+	token := jwt.NewWithClaims(jwt.SigningMethodRS512, claims)
+	token.Header["kid"] = "xxx"
+	return token.SignedString(me.jwtPrivateKey)
 }

@@ -39,8 +39,27 @@ func RequestLimitMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
+// JWTMiddlewareSkippingPrefix creates a new middleware function that will
+// validate JWT tokens except for URLs that start with the given prefix.
+func JWTMiddlewareSkippingPrefix(publicKey []byte, issuer string, audience []string, skip string) (func(http.Handler) http.Handler, error) {
+	jm, err := JWTMiddleware(publicKey, issuer, audience)
+	if err != nil {
+		return nil, err
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, skip) {
+				ctx := context.WithValue(r.Context(), "public", true)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			} else {
+				jm(next).ServeHTTP(w, r)
+			}
+		})
+	}, nil
+}
+
 // JWTMiddleware creates a new middleware function that will validate JWT
-// tokesn based on the supplied public key.
+// tokens based on the supplied public key.
 func JWTMiddleware(publicKey []byte, issuer string, audience []string) (func(http.Handler) http.Handler, error) {
 	parsed, _, _, _, err := ssh.ParseAuthorizedKey(publicKey)
 	if err != nil {
@@ -73,23 +92,27 @@ func JWTMiddleware(publicKey []byte, issuer string, audience []string) (func(htt
 func CharmUserMiddleware(s *HTTPServer) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, err := charmIDFromRequest(r)
-			if err != nil {
-				log.Printf("cannot get charm id from request: %s", err)
-				s.renderError(w)
-				return
+			if r.Context().Value("public") == true {
+				h.ServeHTTP(w, r)
+			} else {
+				id, err := charmIDFromRequest(r)
+				if err != nil {
+					log.Printf("cannot get charm id from request: %s", err)
+					s.renderError(w)
+					return
+				}
+				u, err := s.db.GetUserWithID(id)
+				if err == charm.ErrMissingUser {
+					s.renderCustomError(w, fmt.Sprintf("missing user for id '%s'", id), http.StatusNotFound)
+					return
+				} else if err != nil {
+					log.Printf("cannot read request body: %s", err)
+					s.renderError(w)
+					return
+				}
+				ctx := context.WithValue(r.Context(), ctxUserKey, u)
+				h.ServeHTTP(w, r.WithContext(ctx))
 			}
-			u, err := s.db.GetUserWithID(id)
-			if err == charm.ErrMissingUser {
-				s.renderCustomError(w, fmt.Sprintf("missing user for id '%s'", id), http.StatusNotFound)
-				return
-			} else if err != nil {
-				log.Printf("cannot read request body: %s", err)
-				s.renderError(w)
-				return
-			}
-			ctx := context.WithValue(r.Context(), ctxUserKey, u)
-			h.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

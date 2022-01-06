@@ -46,7 +46,12 @@ func NewHTTPServer(cfg *Config) (*HTTPServer, error) {
 	}
 
 	var jwtMiddleware func(http.Handler) http.Handler
-	jwtMiddleware, err := JWTMiddleware(cfg.PublicKey, cfg.httpURL(), []string{"charm"})
+	jwtMiddleware, err := JWTMiddlewareSkippingPrefix(
+		cfg.PublicKey,
+		cfg.httpURL(),
+		[]string{"charm"},
+		"/v1/public",
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +70,7 @@ func NewHTTPServer(cfg *Config) (*HTTPServer, error) {
 	mux.HandleFunc(pat.Post("/v1/seq/:name"), s.handlePostSeq)
 	mux.HandleFunc(pat.Get("/v1/news"), s.handleGetNewsList)
 	mux.HandleFunc(pat.Get("/v1/news/:id"), s.handleGetNews)
+	mux.HandleFunc(pat.Get("/v1/public/test"), s.handlePublicTest)
 	s.db = cfg.DB
 	s.fstore = cfg.FileStore
 	return s, nil
@@ -316,6 +322,11 @@ func (s *HTTPServer) handleGetNews(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(news)
 	s.cfg.Stats.GetNews()
 }
+
+func (s *HTTPServer) handlePublicTest(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "you got it!\n")
+}
+
 func (s *HTTPServer) charmUserFromRequest(w http.ResponseWriter, r *http.Request) *charm.User {
 	u := r.Context().Value(ctxUserKey)
 	if u == nil {

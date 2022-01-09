@@ -7,8 +7,8 @@ import (
 
 	charm "github.com/charmbracelet/charm/proto"
 	"github.com/charmbracelet/wish"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gliderlabs/ssh"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 func (me *SSHServer) sshMiddleware() wish.Middleware {
@@ -50,7 +50,7 @@ func (me *SSHServer) handleAPIAuth(s ssh.Session) {
 		return
 	}
 	log.Printf("JWT for user %s\n", u.CharmID)
-	j, err := me.newJWT(u.CharmID)
+	j, err := me.newJWT(u.CharmID, []string{"charm"})
 	if err != nil {
 		log.Printf("Error making JWT: %s\n", err)
 		return
@@ -125,6 +125,13 @@ func (me *SSHServer) handleID(s ssh.Session) {
 }
 
 func (me *SSHServer) handleJWT(s ssh.Session) {
+	var aud []string
+	cmd := s.Command()
+	if len(cmd) > 1 {
+		aud = cmd[1:]
+	} else {
+		aud = []string{"charm"}
+	}
 	key, err := keyText(s)
 	if err != nil {
 		log.Println(err)
@@ -136,7 +143,7 @@ func (me *SSHServer) handleJWT(s ssh.Session) {
 		return
 	}
 	log.Printf("JWT for user %s\n", u.CharmID)
-	j, err := me.newJWT(u.CharmID)
+	j, err := me.newJWT(u.CharmID, aud)
 	if err != nil {
 		log.Println(err)
 		return
@@ -145,10 +152,14 @@ func (me *SSHServer) handleJWT(s ssh.Session) {
 	me.config.Stats.JWT()
 }
 
-func (me *SSHServer) newJWT(charmID string) (string, error) {
-	claims := &jwt.StandardClaims{
+func (me *SSHServer) newJWT(charmID string, audience []string) (string, error) {
+	claims := &jwt.RegisteredClaims{
 		Subject:   charmID,
-		ExpiresAt: time.Now().Add(time.Hour).Unix(),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		Issuer:    me.config.httpURL(),
+		Audience:  audience,
 	}
-	return jwt.NewWithClaims(jwt.SigningMethodRS512, claims).SignedString(me.jwtPrivateKey)
+	token := jwt.NewWithClaims(jwt.SigningMethodRS512, claims)
+	token.Header["kid"] = "xxx"
+	return token.SignedString(me.jwtPrivateKey)
 }

@@ -82,6 +82,10 @@ func (cfg *Config) WithKeys(publicKey []byte, privateKey []byte) *Config {
 	return cfg
 }
 
+func (cfg *Config) httpURL() string {
+	return fmt.Sprintf("%s://%s:%d", cfg.HTTPScheme, cfg.Host, cfg.HTTPPort)
+}
+
 // NewServer returns a *Server with the specified Config.
 func NewServer(cfg *Config) (*Server, error) {
 	s := &Server{}

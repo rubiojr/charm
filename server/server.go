@@ -34,7 +34,7 @@ type Config struct {
 	DB                    db.DB
 	FileStore             storage.FileStore
 	Stats                 stats.Stats
-	AutoAccounts          bool
+	AutoAccounts          bool `env:"CHARM_SERVER_AUTO_ACCOUNTS" default:"true"`
 }
 
 // Server contains the SSH and HTTP servers required to host the Charm Cloud.

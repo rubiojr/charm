@@ -39,7 +39,7 @@ var (
 			}
 			cfg.AutoAccounts = !disableAccounts
 			sp := fmt.Sprintf("%s/.ssh", cfg.DataDir)
-			kp, err := keygen.NewWithWrite(sp, "charm_server", []byte(""), keygen.RSA)
+			kp, err := keygen.NewWithWrite(sp, "charm_server", []byte(""), keygen.Ed25519)
 			if err != nil {
 				return err
 			}

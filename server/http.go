@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"crypto"
-	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,7 +22,6 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	"goji.io/pattern"
-	"golang.org/x/crypto/ssh"
 	"gopkg.in/square/go-jose.v2"
 )
 
@@ -38,33 +36,28 @@ type HTTPServer struct {
 	pubKey  crypto.PublicKey
 }
 
+type providerJSON struct {
+	Issuer      string   `json:"issuer"`
+	AuthURL     string   `json:"authorization_endpoint"`
+	TokenURL    string   `json:"token_endpoint"`
+	JWKSURL     string   `json:"jwks_uri"`
+	UserInfoURL string   `json:"userinfo_endpoint"`
+	Algorithms  []string `json:"id_token_signing_alg_values_supported"`
+}
+
 // NewHTTPServer returns a new *HTTPServer with the specified Config.
 func NewHTTPServer(cfg *Config) (*HTTPServer, error) {
 	// No auth health check endpoint
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "We live!")
 	})
-
 	mux := goji.NewMux()
 	s := &HTTPServer{
 		cfg:     cfg,
 		handler: mux,
 	}
-
-	parsed, _, _, _, err := ssh.ParseAuthorizedKey(cfg.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-	parsedCryptoKey := parsed.(ssh.CryptoPublicKey)
-	pubCrypto := parsedCryptoKey.CryptoPublicKey()
-	pk, ok := pubCrypto.(*rsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("Invalid key")
-	}
-	s.pubKey = pk
-
 	jwtMiddleware, err := JWTMiddleware(
-		pk,
+		cfg.jwtKeyPair.JWK.Public(),
 		cfg.httpURL(),
 		[]string{"charm"},
 	)
@@ -154,6 +147,20 @@ func (s *HTTPServer) renderCustomError(w http.ResponseWriter, msg string, status
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(charm.Message{Message: msg})
+}
+
+func (s *HTTPServer) handleJWKS(w http.ResponseWriter, r *http.Request) {
+	jwks := jose.JSONWebKeySet{Keys: []jose.JSONWebKey{s.cfg.jwtKeyPair.JWK.Public()}}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	_ = json.NewEncoder(w).Encode(jwks)
+}
+
+func (s *HTTPServer) handleOpenIDConfig(w http.ResponseWriter, r *http.Request) {
+	pj := providerJSON{JWKSURL: fmt.Sprintf("%s/v1/public/jwks", s.cfg.httpURL())}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	_ = json.NewEncoder(w).Encode(pj)
 }
 
 // TODO do we need this since you can only get the authed user?
@@ -366,30 +373,6 @@ func (s *HTTPServer) handleGetNews(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(news)
 	s.cfg.Stats.GetNews()
-}
-
-func (s *HTTPServer) handleJWKS(w http.ResponseWriter, r *http.Request) {
-	jwk := jose.JSONWebKey{Key: s.pubKey, KeyID: "xxx", Algorithm: "RS512"}
-	jwks := jose.JSONWebKeySet{Keys: []jose.JSONWebKey{jwk}}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	_ = json.NewEncoder(w).Encode(jwks)
-}
-
-type providerJSON struct {
-	Issuer      string   `json:"issuer"`
-	AuthURL     string   `json:"authorization_endpoint"`
-	TokenURL    string   `json:"token_endpoint"`
-	JWKSURL     string   `json:"jwks_uri"`
-	UserInfoURL string   `json:"userinfo_endpoint"`
-	Algorithms  []string `json:"id_token_signing_alg_values_supported"`
-}
-
-func (s *HTTPServer) handleOpenIDConfig(w http.ResponseWriter, r *http.Request) {
-	pj := providerJSON{JWKSURL: fmt.Sprintf("%s/v1/public/jwks", s.cfg.httpURL())}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	_ = json.NewEncoder(w).Encode(pj)
 }
 
 func (s *HTTPServer) charmUserFromRequest(w http.ResponseWriter, r *http.Request) *charm.User {

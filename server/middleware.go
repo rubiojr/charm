@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"crypto"
-	"crypto/rsa"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
 	charm "github.com/charmbracelet/charm/proto"
-	"github.com/golang-jwt/jwt/v4"
 )
 
 type contextKey string
@@ -108,23 +106,6 @@ func isPublic(r *http.Request) bool {
 	return r.Context().Value("public") == true
 }
 
-func jwtMiddlewareImpl(pk crypto.PublicKey, iss string, aud []string) (func(http.Handler) http.Handler, error) {
-	kf := func(ctx context.Context) (interface{}, error) {
-		return pk, nil
-	}
-	v, err := validator.New(
-		kf,
-		validator.RS512,
-		iss,
-		aud,
-	)
-	if err != nil {
-		return nil, err
-	}
-	mw := jwtmiddleware.New(v.ValidateToken)
-	return mw.CheckJWT, nil
-}
-
 func charmIDFromRequest(r *http.Request) (string, error) {
 	claims := r.Context().Value(jwtmiddleware.ContextKey{})
 	if claims == "" {
@@ -138,8 +119,19 @@ func charmIDFromRequest(r *http.Request) (string, error) {
 	return sub, nil
 }
 
-func signRSA(pk *rsa.PublicKey) jwt.Keyfunc {
-	return func(token *jwt.Token) (interface{}, error) {
+func jwtMiddlewareImpl(pk crypto.PublicKey, iss string, aud []string) (func(http.Handler) http.Handler, error) {
+	kf := func(ctx context.Context) (interface{}, error) {
 		return pk, nil
 	}
+	v, err := validator.New(
+		kf,
+		validator.EdDSA,
+		iss,
+		aud,
+	)
+	if err != nil {
+		return nil, err
+	}
+	mw := jwtmiddleware.New(v.ValidateToken)
+	return mw.CheckJWT, nil
 }

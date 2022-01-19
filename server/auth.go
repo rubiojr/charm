@@ -3,12 +3,10 @@ package server
 import (
 	"fmt"
 	"log"
-	"time"
 
 	charm "github.com/charmbracelet/charm/proto"
 	"github.com/charmbracelet/wish"
 	"github.com/gliderlabs/ssh"
-	"github.com/golang-jwt/jwt/v4"
 )
 
 func (me *SSHServer) sshMiddleware() wish.Middleware {
@@ -122,44 +120,4 @@ func (me *SSHServer) handleID(s ssh.Session) {
 	log.Printf("ID for user %s\n", u.CharmID)
 	_, _ = s.Write([]byte(u.CharmID))
 	me.config.Stats.ID()
-}
-
-func (me *SSHServer) handleJWT(s ssh.Session) {
-	var aud []string
-	cmd := s.Command()
-	if len(cmd) > 1 {
-		aud = cmd[1:]
-	} else {
-		aud = []string{"charm"}
-	}
-	key, err := keyText(s)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	u, err := me.db.UserForKey(key, me.config.AutoAccounts)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	log.Printf("JWT for user %s\n", u.CharmID)
-	j, err := me.newJWT(u.CharmID, aud)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	_, _ = s.Write([]byte(j))
-	me.config.Stats.JWT()
-}
-
-func (me *SSHServer) newJWT(charmID string, audience []string) (string, error) {
-	claims := &jwt.RegisteredClaims{
-		Subject:   charmID,
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		Issuer:    me.config.httpURL(),
-		Audience:  audience,
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodRS512, claims)
-	token.Header["kid"] = "xxx"
-	return token.SignedString(me.jwtPrivateKey)
 }

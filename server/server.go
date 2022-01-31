@@ -21,14 +21,14 @@ import (
 
 // Config is the configuration for the Charm server.
 type Config struct {
-	Host                  string `env:"CHARM_SERVER_HOST" default:"localhost"`
+	Host                  string `env:"CHARM_SERVER_HOST"`
 	SSHPort               int    `env:"CHARM_SERVER_SSH_PORT" default:"35353"`
 	HTTPPort              int    `env:"CHARM_SERVER_HTTP_PORT" default:"35354"`
 	StatsPort             int    `env:"CHARM_SERVER_STATS_PORT" default:"35355"`
 	HealthPort            int    `env:"CHARM_SERVER_HEALTH_PORT" default:"35356"`
 	DataDir               string `env:"CHARM_SERVER_DATA_DIR" default:"./data"`
-	TLSKeyFile            string `env:"CHARM_SERVER_TLS_KEY_FILE" default:""`
-	TLSCertFile           string `env:"CHARM_SERVER_TLS_CERT_FILE" default:""`
+	TLSKeyFile            string `env:"CHARM_SERVER_TLS_KEY_FILE"`
+	TLSCertFile           string `env:"CHARM_SERVER_TLS_CERT_FILE"`
 	errorLog              *log.Logger
 	tlsConfig             *tls.Config
 	PublicKey             []byte

@@ -95,58 +95,30 @@ func NewHTTPServer(cfg *Config) (*HTTPServer, error) {
 	return s, nil
 }
 
-// Start starts the HTTP server on the port specified in the Config.
-func (s *HTTPServer) Start(ctx context.Context) {
-	useTls := s.cfg.httpScheme == "https"
+// Start start the HTTP and health servers on the ports specified in the Config.
+func (s *HTTPServer) Start() {
+	useTLS := s.cfg.httpScheme == "https"
 	listenAddr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.HTTPPort)
-	server := &http.Server{
+	s.server = &http.Server{
 		Addr:      listenAddr,
 		Handler:   s.handler,
 		TLSConfig: s.cfg.tlsConfig,
 		ErrorLog:  s.cfg.errorLog,
 	}
 
-	healthServer := &http.Server{
-		Addr: fmt.Sprintf(":%d", s.cfg.HealthPort),
-	}
-
 	go func() {
 		log.Printf("Starting HTTP health server on: %s", s.health.Addr)
-		err := healthServer.ListenAndServe()
-		if err != nil && err != context.Canceled && err != http.ErrServerClosed {
+		if err := s.health.ListenAndServe(); err != nil {
 			log.Fatalf("http health endpoint server exited with error: %s", err)
 		}
 	}()
 
-	go func() {
-		var err error
-		log.Printf("%s server listening on: %s", strings.ToUpper(s.cfg.httpScheme), listenAddr)
-		if useTls && !s.cfg.TLSDisableTermination {
-			err = server.ListenAndServeTLS(s.cfg.TLSCertFile, s.cfg.TLSKeyFile)
-		} else {
-			err = server.ListenAndServe()
-		}
-		if err != nil && err != http.ErrServerClosed && err != context.Canceled {
-			log.Fatalf("server crashed: %s", err)
-		}
-	}()
-
-	<-ctx.Done()
-
-	err := s.db.Close()
-	if err != nil {
-		log.Printf("unexpected error closing the database: %s", err)
+	log.Printf("Starting %s server on: %s", strings.ToUpper(s.cfg.httpScheme), listenAddr)
+	if useTLS {
+		log.Fatalf("Server crashed: %s", s.server.ListenAndServeTLS(s.cfg.TLSCertFile, s.cfg.TLSKeyFile))
+	} else {
+		log.Fatalf("Server crashed: %s", s.server.ListenAndServe())
 	}
-
-	err = healthServer.Shutdown(ctx)
-	if err != context.Canceled {
-		log.Printf("unexpected error shutting down health server: %s", err)
-	}
-	err = server.Shutdown(ctx)
-	if err != context.Canceled {
-		log.Printf("unexpected error shutting down http server: %s", err)
-	}
-	log.Println("http servers stopped")
 }
 
 // Shutdown gracefully shut down the HTTP and health servers.

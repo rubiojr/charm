@@ -26,5 +26,4 @@ type DB interface {
 	PostNews(subject string, body string, tags []string) error
 	GetNews(id string) (*charm.News, error)
 	GetNewsList(tag string, page int) ([]*charm.News, error)
-	Close() error
 }

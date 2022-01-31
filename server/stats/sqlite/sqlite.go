@@ -145,8 +145,3 @@ func (s *Stats) PostNews() {
 func (s *Stats) GetNewsList() {
 	s.increment("get_news_list")
 }
-
-// Close closes the database freeing up resources.
-func (s *Stats) Close() error {
-	return s.db.Close()
-}

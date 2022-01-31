@@ -18,7 +18,6 @@ var (
 	serverSSHPort    int
 	serverHealthPort int
 	serverDataDir    string
-	disableAccounts  bool
 
 	//ServeCmd is the cobra.Command to self-host the Charm Cloud.
 	ServeCmd = &cobra.Command{
@@ -42,7 +41,6 @@ var (
 			if serverDataDir != "" {
 				cfg.DataDir = serverDataDir
 			}
-			cfg.AutoAccounts = !disableAccounts
 			sp := filepath.Join(cfg.DataDir, ".ssh")
 			kp, err := keygen.NewWithWrite(sp, "charm_server", []byte(""), keygen.Ed25519)
 			if err != nil {
@@ -57,7 +55,7 @@ var (
 			done := make(chan os.Signal, 1)
 			signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 			go func() {
-				s.Start(cmd.Context())
+				s.Start()
 			}()
 
 			<-done
@@ -75,5 +73,4 @@ func init() {
 	ServeCmd.Flags().IntVar(&serverSSHPort, "ssh-port", 0, "SSH port to listen on")
 	ServeCmd.Flags().IntVar(&serverHealthPort, "health-port", 0, "Health port to listen on")
 	ServeCmd.Flags().StringVar(&serverDataDir, "data-dir", "", "Directory to store SQLite db, SSH keys and file data")
-	ServeCmd.Flags().BoolVar(&disableAccounts, "disable-accounts", false, "Create accounts for new users automatically if they don't exist")
 }

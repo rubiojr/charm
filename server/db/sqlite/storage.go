@@ -596,7 +596,3 @@ func (me *DB) wrapTransaction(f func(tx *sql.Tx) error) error {
 	}
 	return tx.Commit()
 }
-
-func (me *DB) Close() error {
-	return me.db.Close()
-}

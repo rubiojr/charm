@@ -231,7 +231,7 @@ func fsCat(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	f, err := lsfs.Open(normalizeRemotePath(args[0]))
+	f, err := lsfs.Open(args[0])
 	if err != nil {
 		return err
 	}
@@ -260,8 +260,7 @@ func fsRemove(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	return lsfs.Remove(normalizeRemotePath(args[0]))
+	return lsfs.Remove(args[0])
 }
 
 func fsCopy(cmd *cobra.Command, args []string) error {
@@ -294,7 +293,7 @@ func fsList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	f, err := lsfs.Open(normalizeRemotePath(args[0]))
+	f, err := lsfs.Open(args[0])
 	if err != nil {
 		return err
 	}
@@ -319,7 +318,7 @@ func fsTree(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	err = fs.WalkDir(lsfs, normalizeRemotePath(args[0]), func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(lsfs, args[0], func(path string, d fs.DirEntry, err error) error {
 		fmt.Println(path)
 		return nil
 	})
@@ -365,12 +364,4 @@ func init() {
 	FSCmd.AddCommand(fsMoveCmd)
 	FSCmd.AddCommand(fsListCmd)
 	FSCmd.AddCommand(fsTreeCmd)
-}
-
-func normalizeRemotePath(path string) string {
-	if strings.HasPrefix(path, "charm:") {
-		return path[6:]
-	}
-
-	return path
 }

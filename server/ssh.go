@@ -69,21 +69,9 @@ func NewSSHServer(cfg *Config) (*SSHServer, error) {
 }
 
 // Start serves the SSH protocol on the configured port.
-func (me *SSHServer) Start(ctx context.Context) {
+func (me *SSHServer) Start() {
 	log.Printf("Starting SSH server on %s", me.server.Addr)
-	go func() {
-		err := me.server.ListenAndServe()
-		if err != nil && err != context.Canceled && err != ssh.ErrServerClosed {
-			log.Fatalf("ssh server crashed: %s", err)
-		}
-	}()
-
-	<-ctx.Done()
-	if err := me.server.Shutdown(ctx); err != context.Canceled {
-		log.Printf("unexpected error shutting down ssh server: %s", err)
-	}
-
-	log.Println("SSH server stopped")
+	log.Fatal(me.server.ListenAndServe())
 }
 
 // Shutdown gracefully shuts down the SSH server.

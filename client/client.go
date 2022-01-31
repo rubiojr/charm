@@ -28,7 +28,7 @@ type Config struct {
 	Host       string `env:"CHARM_HOST" default:"cloud.charm.sh"`
 	SSHPort    int    `env:"CHARM_SSH_PORT" default:"35353"`
 	HTTPPort   int    `env:"CHARM_HTTP_PORT" default:"35354"`
-	HTTPScheme string `env:"CHARM_HTTP_SCHEME"`
+	HTTPScheme string `env:"CHARM_HTTP_SCHEME" default:"https"`
 	Debug      bool   `env:"CHARM_DEBUG" default:"false"`
 	Logfile    string `env:"CHARM_LOGFILE" default:""`
 }

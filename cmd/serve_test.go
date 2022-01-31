@@ -59,7 +59,7 @@ func TestServe(t *testing.T) {
 	}
 
 	assert.DirExists(t, filepath.Join(tempDir, "db"))
-	assert.Regexp(t, regexp.MustCompile("HTTP server listening on: :35354"), buf.String())
+	assert.Regexp(t, regexp.MustCompile("HTTP server listening on: localhost:35354"), buf.String())
 	// helps with debugging if test fails
 	fmt.Println(buf.String())
 }

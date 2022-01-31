@@ -6,7 +6,7 @@ Charm
   <a href="https://github.com/charmbracelet/charm/releases"><img src="https://img.shields.io/github/release/charmbracelet/charm.svg" alt="Latest Release"></a>
   <a href="https://pkg.go.dev/github.com/charmbracelet/charm?tab=doc"><img src="https://godoc.org/github.com/golang/gddo?status.svg" alt="GoDoc"></a>
   <a href="https://github.com/charmbracelet/charm/actions"><img src="https://github.com/charmbracelet/charm/workflows/build/badge.svg" alt="Build Status"></a>
-  <a href="https://nightly.link/charmbracelet/charm/workflows/build/main"><img src="https://shields.io/badge/-Nightly%20Builds-orange?logo=hackthebox&logoColor=fff&style=appveyor"/></a>
+  <a href="https://nightly.link/charmbracelet/charm/workflows/nightly/main"><img src="https://shields.io/badge/-Nightly%20Builds-orange?logo=hackthebox&logoColor=fff&style=appveyor"/></a>
 </p>
 
 Charm is a set of tools that makes adding a backend to your terminal-based
@@ -157,7 +157,7 @@ Use a package manager:
 brew tap charmbracelet/tap && brew install charmbracelet/tap/charm
 
 # Arch Linux (btw)
-yay -S charm-tool
+pacman -S charm
 
 # Nix
 nix-env -iA nixpkgs.charm
@@ -206,6 +206,14 @@ To set up TLS, you should set `CHARM_SERVER_HTTP_SCHEME` environment variable to
 * [Skate][skate]: A personal key-value store 🛼
 * Your app here! Let us know what you build: [vt100@charm.sh](mailto:vt100@charm.sh)
 
+## Feedback
+
+We’d love to hear your thoughts on this project. Feel free to drop us a note!
+
+* [Twitter](https://twitter.com/charmcli)
+* [The Fediverse](https://mastodon.technology/@charm)
+* [Slack](https://charm.sh/slack)
+
 ## License
 
 [MIT](https://github.com/charmbracelet/charm/raw/main/LICENSE)
@@ -214,7 +222,7 @@ To set up TLS, you should set `CHARM_SERVER_HTTP_SCHEME` environment variable to
 
 Part of [Charm](https://charm.sh).
 
-<a href="https://charm.sh/"><img alt="the Charm logo" src="https://stuff.charm.sh/charm-badge-unrounded.jpg" width="400"></a>
+<a href="https://charm.sh/"><img alt="the Charm logo" src="https://stuff.charm.sh/charm-badge.jpg" width="400"></a>
 
 Charm热爱开源 • Charm loves open source
 

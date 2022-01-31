@@ -1,7 +1,12 @@
 package cmd
 
 import (
-	"fmt"
+	"context"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/charmbracelet/charm/server"
 	"github.com/charmbracelet/keygen"
@@ -38,7 +43,7 @@ var (
 				cfg.DataDir = serverDataDir
 			}
 			cfg.AutoAccounts = !disableAccounts
-			sp := fmt.Sprintf("%s/.ssh", cfg.DataDir)
+			sp := filepath.Join(cfg.DataDir, ".ssh")
 			kp, err := keygen.NewWithWrite(sp, "charm_server", []byte(""), keygen.Ed25519)
 			if err != nil {
 				return err
@@ -48,8 +53,19 @@ var (
 			if err != nil {
 				return err
 			}
-			s.Start(cmd.Context())
-			return nil
+
+			done := make(chan os.Signal, 1)
+			signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+			go func() {
+				s.Start(cmd.Context())
+			}()
+
+			<-done
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer func() { cancel() }()
+
+			return s.Shutdown(ctx)
 		},
 	}
 )

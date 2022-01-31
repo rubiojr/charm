@@ -33,12 +33,19 @@ type SSHServer struct {
 	tokenBucket  *toktok.Bucket
 	linkRequests map[charm.Token]chan *charm.Link
 	server       *ssh.Server
+	errorLog     *log.Logger
 }
 
 // NewSSHServer creates a new SSHServer from the provided Config.
 func NewSSHServer(cfg *Config) (*SSHServer, error) {
-	s := &SSHServer{config: cfg}
-	addr := fmt.Sprintf(":%d", cfg.SSHPort)
+	s := &SSHServer{
+		config:   cfg,
+		errorLog: cfg.errorLog,
+	}
+	if s.errorLog == nil {
+		s.errorLog = log.Default()
+	}
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.SSHPort)
 	b, err := toktok.NewBucket(6)
 	if err != nil {
 		return nil, err
@@ -79,6 +86,12 @@ func (me *SSHServer) Start(ctx context.Context) {
 	log.Println("SSH server stopped")
 }
 
+// Shutdown gracefully shuts down the SSH server.
+func (me *SSHServer) Shutdown(ctx context.Context) error {
+	log.Printf("Stopping SSH server on %s", me.server.Addr)
+	return me.server.Shutdown(ctx)
+}
+
 func (me *SSHServer) sendAPIMessage(s ssh.Session, msg string) error {
 	return me.sendJSON(s, charm.Message{Message: msg})
 }
@@ -110,7 +123,7 @@ func (me *SSHServer) handleJWT(s ssh.Session) {
 		return
 	}
 	log.Printf("JWT for user %s\n", u.CharmID)
-	j, err := me.newJWT(u.CharmID, aud)
+	j, err := me.newJWT(u.CharmID, aud...)
 	if err != nil {
 		log.Println(err)
 		return
@@ -119,7 +132,7 @@ func (me *SSHServer) handleJWT(s ssh.Session) {
 	me.config.Stats.JWT()
 }
 
-func (me *SSHServer) newJWT(charmID string, audience []string) (string, error) {
+func (me *SSHServer) newJWT(charmID string, audience ...string) (string, error) {
 	claims := &jwt.RegisteredClaims{
 		Subject:   charmID,
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
